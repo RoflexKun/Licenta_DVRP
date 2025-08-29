@@ -43,8 +43,23 @@ public class ExtractData {
                 }
             }
 
-            /// TODO: De creat tot graful complet cu muchii intre el
-            /// TODO: De asignat muchii intre noduri cu valoarea lor calculand distanta folosind formula euleriana
+            for(int i=0; i < numberOfNodes; i++){
+                this.map.addLabeledVertex(i);
+            }
+
+            // Generating a complete Graph
+            for(Integer i = 0; i < numberOfNodes - 1; i++){
+                for(Integer j = i + 1; j < numberOfNodes; j++){
+                    this.map.addEdge(i, j);
+                    this.map.setEdgeWeight(i, j, this.nodeCoordinates.get(i).distanceToNode(this.nodeCoordinates.get(j)));
+                }
+            }
+
+            for(Integer i = 0; i < numberOfNodes - 1; i++) {
+                for (Integer j = i + 1; j < numberOfNodes; j++) {
+                    System.out.println("i = " + i + " j = " + j + " dist = " + this.map.getEdgeWeight(i, j));
+                }
+            }
 
         } catch (IOException ex) {
             System.err.println("Error reading file: " + ex.getMessage());

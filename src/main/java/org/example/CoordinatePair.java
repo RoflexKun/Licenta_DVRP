@@ -17,7 +17,7 @@ public class CoordinatePair {
         return secondCoordinate;
     }
 
-    public Double distanceToNode(Integer x, Integer y){
-        return Math.sqrt(Math.pow(this.firstCoordinate - x, 2) + Math.pow(this.secondCoordinate - y, 2));
+    public Double distanceToNode(CoordinatePair secondPair){
+        return Math.sqrt(Math.pow(this.firstCoordinate - secondPair.getFirstCoordinate(), 2) + Math.pow(this.secondCoordinate - secondPair.getSecondCoordinate(), 2));
     }
 }
