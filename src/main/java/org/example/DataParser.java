@@ -14,7 +14,6 @@ import java.util.Map;
 
 public class DataParser {
     private final Path filename;
-    private Graph map;
 
     private int numberOfDepots; // number of depots where the vehicles can return to
     private int numberOfCapacities; // number of capacities/constraints of a vehicle
@@ -37,9 +36,7 @@ public class DataParser {
     DataParser(String filename) {
         Path projectRoot = Paths.get("").toAbsolutePath();
         this.filename = projectRoot.resolve("src/main/resources/TestData/" + filename);
-        this.map = GraphBuilder.empty().buildGraph();
         parseFileContent();
-        // TODO: A function to build the graph
 
     }
 
