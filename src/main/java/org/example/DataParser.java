@@ -1,8 +1,5 @@
 package org.example;
 
-import org.graph4j.Graph;
-import org.graph4j.GraphBuilder;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

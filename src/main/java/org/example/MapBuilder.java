@@ -44,5 +44,11 @@ public class MapBuilder {
         }
     }
 
+    public Graph getMapFromData() {
+        return mapFromData;
+    }
 
+    public DataParser getDataParsedFromTestData() {
+        return dataParsedFromTestData;
+    }
 }
