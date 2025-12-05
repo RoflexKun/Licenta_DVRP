@@ -72,10 +72,10 @@ public class VNS {
             return true;
     }
 
-    private int getBestNode(int currentNode, int capacity, Map<Integer, Boolean> visitedNodes, double routeTime) {
+    private int getBestNode(int currentNode, int capacity, Map<Integer, Boolean> visitedNodes, double routeTime, int currentDepotNode) {
         int bestNode = -1;
         double bestArrival = Double.MAX_VALUE;
-        int depotClosingTime = this.valuesFromTestData.getDepotOpenTimeFrame().get(0)[1];
+        int depotClosingTime = this.valuesFromTestData.getDepotOpenTimeFrame().get(currentDepotNode)[1];
 
         for (int node : this.graph.vertices()) {
             if (isDepot(node)) continue;
@@ -107,10 +107,11 @@ public class VNS {
         List<List<Integer>> indexOfSolution = new ArrayList<>();
         this.visitedNodes = initializeVisitedList();
 
+        int numberOfDepotsAvailable = this.valuesFromTestData.getListOfDepotsIndex().size();
         for (int i = 0; i < this.numberOfVehicles; i++) {
             double routeTime = 0.0;
 
-            int depotIndex = this.valuesFromTestData.getListOfDepotsIndex().get(0);
+            int depotIndex = this.valuesFromTestData.getListOfDepotsIndex().get(i % numberOfDepotsAvailable);
             int depotNode = this.valuesFromTestData.getMapDepotToNode().get(depotIndex);
             int depotClosingTime = this.valuesFromTestData.getDepotOpenTimeFrame().get(depotNode)[1];
 
@@ -121,7 +122,7 @@ public class VNS {
             int currentNode = depotNode;
 
             while (true) {
-                int nextNode = getBestNode(currentNode, capacity, visitedNodes, routeTime);
+                int nextNode = getBestNode(currentNode, capacity, visitedNodes, routeTime, depotNode);
 
                 if (nextNode == -1) {
                     routeTime += this.timestep;
@@ -181,7 +182,7 @@ public class VNS {
             } while (currentSolution.get(route1).size() <= 2);
 
             route2 = (int) (Math.random() * currentSolution.size());
-            while(route1 == route2){
+            while(route1 == route2 || (k == 0 && currentSolution.get(route2).size() <= 2)){
                 route2 = (int) (Math.random() * currentSolution.size());
             }
 
