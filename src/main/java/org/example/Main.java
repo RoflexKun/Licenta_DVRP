@@ -1,6 +1,6 @@
 package org.example;
 
-import org.example.heuristics.VNS;
+import org.example.algorithms.VNS.VNS;
 
 public class Main {
     public static void main(String[] args) {
