@@ -1,6 +1,4 @@
-package org.example.heuristics;
-
-import org.graph4j.Graph;
+package org.example.algorithms.VNS;
 
 import java.util.*;
 

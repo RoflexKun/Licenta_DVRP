@@ -1,4 +1,4 @@
-package org.example.heuristics;
+package org.example.algorithms.VNS;
 
 import org.example.CoordinatePair;
 import org.example.DataParser;
