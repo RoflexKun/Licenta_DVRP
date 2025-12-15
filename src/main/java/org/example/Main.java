@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.algorithms.GA.GeneticAlgorithm;
 import org.example.algorithms.VNS.VNS;
 
 public class Main {
@@ -8,7 +9,11 @@ public class Main {
         MapBuilder mapBuilder = new MapBuilder(currentDataTest);
         // mapBuilder.printMap();
 
-        VNS vnsImplementation = new VNS(mapBuilder);
-        vnsImplementation.runVNS();
+        // Commented to test Genetic Algorithm
+        //VNS vnsImplementation = new VNS(mapBuilder);
+        //vnsImplementation.runVNS();
+
+        GeneticAlgorithm geneticAlgorithmImplementation = new GeneticAlgorithm(mapBuilder);
+        geneticAlgorithmImplementation.runGA();
     }
 }

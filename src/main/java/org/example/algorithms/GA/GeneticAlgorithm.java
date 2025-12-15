@@ -16,6 +16,7 @@ public class GeneticAlgorithm {
 
     private final int POPULATION_COUNT = 100;
     private final int PENALITY_VALUE = (int)1e9;
+    private final int NUMBER_OF_ITERATIONS = 100;
 
     public GeneticAlgorithm(MapBuilder mapBuilder){
         this.graph = mapBuilder.getMapFromData();
@@ -77,7 +78,7 @@ public class GeneticAlgorithm {
 
         for(int i = 0; i < individual.size(); i++){
             int currentCustomer = individual.get(i);
-            int demand = this.demands.get(currentCustomer);
+            int demand = Math.abs(this.demands.get(currentCustomer));
             double distance = this.graph.getEdgeWeight(customerBefore, currentCustomer);
             boolean routeEnds = false;
 
@@ -184,9 +185,7 @@ public class GeneticAlgorithm {
         return child;
     }
 
-    private List<List<Integer>> crossover(List<List<Integer>> currentPopulation){
-        List<List<Integer>> nextGeneration = new ArrayList<>();
-
+    private List<Integer> findBestSolution(List<List<Integer>> currentPopulation){
         List<Integer> bestIndividual = currentPopulation.getFirst();
         double bestFitness = Double.MAX_VALUE;
 
@@ -197,6 +196,13 @@ public class GeneticAlgorithm {
                 bestFitness = currentFitness;
             }
         }
+
+        return bestIndividual;
+    }
+
+    private List<List<Integer>> crossover(List<List<Integer>> currentPopulation){
+        List<List<Integer>> nextGeneration = new ArrayList<>();
+        List<Integer> bestIndividual = findBestSolution(currentPopulation);
 
         // Keeping the best individual from each generation so we don't miss him
         nextGeneration.add(bestIndividual);
@@ -215,7 +221,66 @@ public class GeneticAlgorithm {
 
     }
 
-    public void runGA(){
+    private List<List<Integer>> twoOpt(List<List<Integer>> population){
+        int bestIndex = 0;
+        double minFitness = Double.MAX_VALUE;
 
+        for (int i = 0; i < population.size(); i++) {
+            double f = computeFitness(population.get(i));
+            if (f < minFitness) {
+                minFitness = f;
+                bestIndex = i;
+            }
+        }
+
+        List<Integer> bestRoute = new ArrayList<>(population.get(bestIndex));
+        double bestDistance = computeFitness(bestRoute);
+        boolean improvement = true;
+
+        while(improvement){
+            improvement = false;
+
+            for(int i = 0; i < bestRoute.size() - 1; i++){
+                for(int j = i + 1; j < bestRoute.size(); j++){
+                    List<Integer> newRoute = new ArrayList<>(bestRoute);
+
+                    Collections.reverse(newRoute.subList(i, j + 1));
+
+                    double newDistance = computeFitness(newRoute);
+
+                    if(newDistance < bestDistance){
+                        bestRoute = newRoute;
+                        bestDistance = newDistance;
+                        improvement = true;
+
+                        break;
+                    }
+                }
+                if(improvement)
+                    break;
+            }
+        }
+
+        population.set(bestIndex, bestRoute);
+
+        return population;
+
+    }
+
+    public void runGA(){
+        List<List<Integer>> currentPopulation = initialSolution();
+        Mutations mutations = new Mutations();
+
+        for(int i = 0; i < NUMBER_OF_ITERATIONS; i++){
+            currentPopulation = crossover(currentPopulation);
+
+            currentPopulation = mutations.mutation(currentPopulation);
+
+            currentPopulation = twoOpt(currentPopulation);
+
+            List<Integer> bestIndividual = findBestSolution(currentPopulation);
+            System.out.println(bestIndividual);
+            System.out.println("Best distance: " + computeFitness(bestIndividual));
+        }
     }
 }
