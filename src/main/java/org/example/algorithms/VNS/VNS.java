@@ -18,6 +18,7 @@ public class VNS {
     private int timestep;
     private Map<Integer, Integer> visitOpeningTime;
     private Map<Integer, Boolean> visitedNodes;
+    private final long TIME_LIMIT = 125 * 1000;
 
 
     public VNS(MapBuilder mapBuilder){
@@ -332,18 +333,22 @@ public class VNS {
         }
     }
 
-    public void runVNS(){
+    public double runVNS(){
         List<List<Integer>> currentSolution = greedySolution();
         double bestDistance = totalDistance(currentSolution);
+
+        long startTime = System.currentTimeMillis();
+
         System.out.println("Initial Greedy solution: " + currentSolution);
         int kmax = 1;
         int k = 0;
-        int maxIterations = 500;
+        int iteration = 0;
 
-        for(int i = 0; i < maxIterations; i++){
+        while(System.currentTimeMillis() - startTime < TIME_LIMIT){
+            iteration += 1;
             List<List<Integer>> shakenSolution = shake(currentSolution, k);
             updateVisitedNodes(shakenSolution);
-            System.out.println("Shake of iteration: " + i);
+            System.out.println("Shake of iteration: " + iteration);
             List<List<Integer>> improvedSolution = localSearch(shakenSolution);
             updateVisitedNodes(improvedSolution);
             double improvedDistance = totalDistance(improvedSolution);
@@ -358,10 +363,12 @@ public class VNS {
                     k = 0;
                 }
             }
-            System.out.println("Iteration " + (i + 1) + ":");
+            System.out.println("Iteration " + iteration + ":");
             System.out.println("Final solution: " + currentSolution);
             System.out.println("Best distance: " + bestDistance);
         }
+
+        return bestDistance;
 
     }
 }
