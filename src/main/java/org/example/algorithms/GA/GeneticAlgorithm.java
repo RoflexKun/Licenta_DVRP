@@ -16,7 +16,10 @@ public class GeneticAlgorithm {
 
     private final int POPULATION_COUNT = 100;
     private final int PENALITY_VALUE = (int)1e9;
-    private final int NUMBER_OF_ITERATIONS = 100;
+    private final int MAX_EVALUATIONS = 1000000;
+    private int fitnessUsageCounter = 0;
+
+    private Map<List<Integer>, Double> fitnessCache = new HashMap<>();
 
     public GeneticAlgorithm(MapBuilder mapBuilder){
         this.graph = mapBuilder.getMapFromData();
@@ -65,6 +68,10 @@ public class GeneticAlgorithm {
     }
 
     private double computeFitness(List<Integer> individual){
+        if(this.fitnessCache.containsKey(individual)){
+            return this.fitnessCache.get(individual);
+        }
+        this.fitnessUsageCounter++;
         List<Integer> listOfDepotsIndexes = this.valuesFromTestData.getListOfDepotsIndex();
         int numberOfVehicles = this.valuesFromTestData.getNumberOfVehicles();
         int vehicleNumber = 0;
@@ -116,6 +123,7 @@ public class GeneticAlgorithm {
         if(customerBefore != depotNode){
             totalDistance += this.graph.getEdgeWeight(customerBefore, depotNode);
         }
+        this.fitnessCache.put(individual, totalDistance);
 
         return totalDistance;
 
@@ -267,11 +275,17 @@ public class GeneticAlgorithm {
 
     }
 
-    public void runGA(){
+    public double runGA(){
+        this.fitnessUsageCounter = 0;
+        this.fitnessCache.clear();
         List<List<Integer>> currentPopulation = initialSolution();
         Mutations mutations = new Mutations();
-
-        for(int i = 0; i < NUMBER_OF_ITERATIONS; i++){
+        double bestDistance = Double.MAX_VALUE;
+        int iteration = 0;
+        while(this.fitnessUsageCounter < MAX_EVALUATIONS){
+            iteration += 1;
+            System.out.println("Current number of iterations: " + iteration);
+            System.out.print("FFE Consumed: " + this.fitnessUsageCounter + "/" + MAX_EVALUATIONS);
             currentPopulation = crossover(currentPopulation);
 
             currentPopulation = mutations.mutation(currentPopulation);
@@ -279,8 +293,14 @@ public class GeneticAlgorithm {
             currentPopulation = twoOpt(currentPopulation);
 
             List<Integer> bestIndividual = findBestSolution(currentPopulation);
+            double bestFitness = computeFitness(bestIndividual);
             System.out.println(bestIndividual);
-            System.out.println("Best distance: " + computeFitness(bestIndividual));
+            System.out.println("Best distance: " + bestFitness);
+            if (bestFitness < bestDistance){
+                bestDistance = bestFitness;
+            }
         }
+
+        return bestDistance;
     }
 }

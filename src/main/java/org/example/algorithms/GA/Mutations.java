@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class Mutations {
-    private static final double PM = 0.3;
+    private static final double PM = 0.15;
 
     public List<List<Integer>> mutation(List<List<Integer>> population){
 
