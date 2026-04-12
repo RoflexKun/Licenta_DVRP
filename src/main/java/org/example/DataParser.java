@@ -20,9 +20,9 @@ public class DataParser {
     private int capacityLimit;
     private int timestep; // Unit of time
 
-    private final List<Integer> listOfDepotsIndex = new ArrayList<>();
+    private List<Integer> listOfDepotsIndex = new ArrayList<>();
     private Map<Integer, Integer> listOfCustomerDemand = new HashMap<>();
-    private final Map<Integer, CoordinatePair> nodeCoordinates = new HashMap<>();
+    private Map<Integer, CoordinatePair> nodeCoordinates = new HashMap<>();
     private Map<Integer, Integer> mapDepotToNode = new HashMap<>();
     private Map<Integer, Integer> mapVisitIdToNode = new HashMap<>();
     private Map<Integer, Integer> durationOfVisit = new HashMap<>();
@@ -35,6 +35,27 @@ public class DataParser {
         this.filename = projectRoot.resolve("src/main/resources/TestData/" + filename);
         parseFileContent();
 
+    }
+
+    public DataParser(DataParser dataParser){
+        this.filename = dataParser.filename;
+
+        this.numberOfDepots = dataParser.numberOfDepots;
+        this.numberOfCapacities = dataParser.numberOfCapacities;
+        this.numberOfVisits = dataParser.numberOfVisits;
+        this.numberOfLocations = dataParser.numberOfLocations;
+        this.numberOfVehicles = dataParser.numberOfVehicles;
+        this.capacityLimit = dataParser.capacityLimit;
+        this.timestep = dataParser.timestep;
+
+        this.listOfDepotsIndex = new ArrayList<>(dataParser.listOfDepotsIndex);
+        this.listOfCustomerDemand = new HashMap<>(dataParser.listOfCustomerDemand);
+        this.nodeCoordinates = new HashMap<>(dataParser.nodeCoordinates);
+        this.mapDepotToNode = new HashMap<>(dataParser.mapDepotToNode);
+        this.mapVisitIdToNode =  new HashMap<>(dataParser.mapVisitIdToNode);
+        this.durationOfVisit = new HashMap<>(dataParser.durationOfVisit);
+        this.depotOpenTimeFrame = new HashMap<>(dataParser.depotOpenTimeFrame);
+        this.visitOpeningTime = new HashMap<>(dataParser.visitOpeningTime);
     }
 
     public Integer extractValueFromLine(String line){
@@ -189,5 +210,9 @@ public class DataParser {
 
     public Map<Integer, Integer[]> getDepotOpenTimeFrame() {
         return depotOpenTimeFrame;
+    }
+
+    public void setListOfDepotsIndex(List<Integer> newListOfDepotsIndex) {
+        this.listOfDepotsIndex = newListOfDepotsIndex;
     }
 }
