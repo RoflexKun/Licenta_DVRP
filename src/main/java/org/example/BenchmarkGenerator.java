@@ -1,6 +1,7 @@
 package org.example;
 
 import org.example.algorithms.GA.GeneticAlgorithm;
+import org.example.algorithms.PSO.PSO;
 import org.example.algorithms.VNS.VNS;
 
 import java.io.File;
@@ -82,6 +83,25 @@ public class BenchmarkGenerator {
         return new ResultPair(Collections.min(listOfScores), average);
     }
 
+    private ResultPair benchmarkPSO(String testData){
+        List<Double> listOfScores = new ArrayList<>();
+
+        for(int i = 0; i < NUMBER_OF_ITERATIONS; i++){
+            MapBuilder mapBuilder = new MapBuilder(new DataParser(testData));
+            PSO psoInstance = new PSO(mapBuilder);
+
+            double currentRunBestResult = psoInstance.runPSO();
+            listOfScores.add(currentRunBestResult);
+        }
+        double average = 0.00;
+        for (Double scoreOfRun : listOfScores) {
+            average += scoreOfRun;
+        }
+        average = average / NUMBER_OF_ITERATIONS;
+
+        return new ResultPair(Collections.min(listOfScores), average);
+    }
+
     public void runBenchmark(){
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
@@ -89,22 +109,31 @@ public class BenchmarkGenerator {
         String filePath = directoryPath + "/Benchmark_Results_" + timestamp + ".csv";
 
         try(PrintWriter writer = new PrintWriter(new FileWriter(filePath))) {
-            writer.println("Instance,GA_Min,GA_Avg,VNS_Min,VNS_Avg");
+            writer.println("Instance,GA_Min,GA_Avg,VNS_Min,VNS_Avg,PSO_Min,PSO_Avg");
 
             for(String testData : this.listOfTestData){
                 System.out.println("Running benchmark for: " + testData);
-                ResultPair geneticAlgorithmResults = benchmarkGeneticAlgorithm(testData);
-                ResultPair vnsResults = benchmarkVNS(testData);
+                ResultPair psoResults = benchmarkPSO(testData);
+                System.out.println("PSO Results: " + psoResults.min + " " + psoResults.avg);
 
-                System.out.println("VNS Results: " + vnsResults.min + " " + vnsResults.avg);
+                ResultPair geneticAlgorithmResults = benchmarkGeneticAlgorithm(testData);
                 System.out.println("GA Results: " + geneticAlgorithmResults.min + " " + geneticAlgorithmResults.avg);
 
-                writer.printf(Locale.US, "%s,%.2f,%.2f,%.2f,%.2f%n",
+                ResultPair vnsResults = benchmarkVNS(testData);
+                System.out.println("VNS Results: " + vnsResults.min + " " + vnsResults.avg);
+
+
+
+
+
+                writer.printf(Locale.US, "%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f%n",
                         testData,
                         geneticAlgorithmResults.min,
                         geneticAlgorithmResults.avg,
                         vnsResults.min,
-                        vnsResults.avg
+                        vnsResults.avg,
+                        psoResults.min,
+                        psoResults.avg
                 );
 
                 writer.flush();

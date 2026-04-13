@@ -19,6 +19,10 @@ public class DataParser {
     private int numberOfVehicles;
     private int capacityLimit;
     private int timestep; // Unit of time
+    private double minX = Double.MAX_VALUE;
+    private double maxX = Double.MIN_VALUE;
+    private double minY = Double.MAX_VALUE;
+    private double maxY = Double.MIN_VALUE;
 
     private List<Integer> listOfDepotsIndex = new ArrayList<>();
     private Map<Integer, Integer> listOfCustomerDemand = new HashMap<>();
@@ -116,6 +120,15 @@ public class DataParser {
 
                         this.nodeCoordinates.put(Integer.parseInt(coordinatesLine[0]),
                                 new CoordinatePair(Integer.parseInt(coordinatesLine[1]), Integer.parseInt(coordinatesLine[2])));
+
+                        if(Integer.parseInt(coordinatesLine[1]) < minX)
+                            this.minX = Integer.parseInt(coordinatesLine[1]);
+                        if(Integer.parseInt(coordinatesLine[1]) > maxX)
+                            this.maxX = Integer.parseInt(coordinatesLine[1]);
+                        if(Integer.parseInt(coordinatesLine[2]) < minY)
+                            this.minY = Integer.parseInt(coordinatesLine[2]);
+                        if(Integer.parseInt(coordinatesLine[2]) > maxY)
+                            this.maxY = Integer.parseInt(coordinatesLine[2]);
                         valuesIndex++;
                     }
                 } else if(line.contains("DEPOT_LOCATION_SECTION")){
@@ -135,7 +148,7 @@ public class DataParser {
                                 new Integer[]{
                                         Integer.parseInt(coordinatesLine[1]),
                                         Integer.parseInt(coordinatesLine[2])
-                        });
+                                });
                         valuesIndex++;
                     }
                 } else if(line.contains("TIMESTEP")){
@@ -214,5 +227,21 @@ public class DataParser {
 
     public void setListOfDepotsIndex(List<Integer> newListOfDepotsIndex) {
         this.listOfDepotsIndex = newListOfDepotsIndex;
+    }
+
+    public double getMaxX() {
+        return maxX;
+    }
+
+    public double getMaxY() {
+        return maxY;
+    }
+
+    public double getMinX() {
+        return minX;
+    }
+
+    public double getMinY() {
+        return minY;
     }
 }

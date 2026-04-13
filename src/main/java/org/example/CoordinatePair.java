@@ -1,23 +1,23 @@
 package org.example;
 
 public class CoordinatePair {
-    private final Integer firstCoordinate;
-    private final Integer secondCoordinate;
+    private final double firstCoordinate;
+    private final double secondCoordinate;
 
-    CoordinatePair(Integer firstCoordinate, Integer secondCoordinate){
+    public CoordinatePair(double firstCoordinate, double secondCoordinate){
         this.firstCoordinate = firstCoordinate;
         this.secondCoordinate = secondCoordinate;
     }
 
-    public Integer getFirstCoordinate() {
+    public double getFirstCoordinate() {
         return firstCoordinate;
     }
 
-    public Integer getSecondCoordinate() {
+    public double getSecondCoordinate() {
         return secondCoordinate;
     }
 
-    public Double distanceToNode(CoordinatePair secondPair){
+    public double distanceToNode(CoordinatePair secondPair){
         return Math.sqrt(Math.pow(this.firstCoordinate - secondPair.getFirstCoordinate(), 2) + Math.pow(this.secondCoordinate - secondPair.getSecondCoordinate(), 2));
     }
 }
