@@ -48,11 +48,12 @@ public class BenchmarkGenerator {
     private ResultPair benchmarkVNS(String testData){
         List<Double> listOfScores = new ArrayList<>();
 
-        for (int i = 0; i < NUMBER_OF_ITERATIONS; i++){
-            MapBuilder mapBuilder = new MapBuilder(new DataParser(testData));
-            VNS vnsInstance = new VNS(mapBuilder);
+        DVRPManagement dvrpManager = new DVRPManagement(new DataParser(testData));
 
-            double currentRunBestResult = vnsInstance.runVNS();
+        for (int i = 0; i < NUMBER_OF_ITERATIONS; i++){
+
+            double currentRunBestResult = dvrpManager.DVRP("VNS");
+            System.out.println("Interation " + i + " best result:" + currentRunBestResult);
             listOfScores.add(currentRunBestResult);
         }
         double average = 0.00;
@@ -67,11 +68,12 @@ public class BenchmarkGenerator {
     private ResultPair benchmarkGeneticAlgorithm(String testData){
         List<Double> listOfScores = new ArrayList<>();
 
-        for (int i = 0; i < NUMBER_OF_ITERATIONS; i++){
-            MapBuilder mapBuilder = new MapBuilder(new DataParser(testData));
-            GeneticAlgorithm geneticAlgorithmInstance = new GeneticAlgorithm(mapBuilder);
+        DVRPManagement dvrpManager = new DVRPManagement(new DataParser(testData));
 
-            double currentRunBestResult = geneticAlgorithmInstance.runGA();
+        for (int i = 0; i < NUMBER_OF_ITERATIONS; i++){
+
+            double currentRunBestResult = dvrpManager.DVRP("GA");
+            System.out.println("Interation " + i + " best result:" + currentRunBestResult);
             listOfScores.add(currentRunBestResult);
         }
         double average = 0.00;
@@ -86,11 +88,11 @@ public class BenchmarkGenerator {
     private ResultPair benchmarkPSO(String testData){
         List<Double> listOfScores = new ArrayList<>();
 
-        for(int i = 0; i < NUMBER_OF_ITERATIONS; i++){
-            MapBuilder mapBuilder = new MapBuilder(new DataParser(testData));
-            PSO psoInstance = new PSO(mapBuilder);
+        DVRPManagement dvrpManager = new DVRPManagement(new DataParser(testData));
 
-            double currentRunBestResult = psoInstance.runPSO();
+        for(int i = 0; i < NUMBER_OF_ITERATIONS; i++){
+            double currentRunBestResult = dvrpManager.DVRP("PSO");
+            System.out.println("Interation " + i + " best result:" + currentRunBestResult);
             listOfScores.add(currentRunBestResult);
         }
         double average = 0.00;
@@ -116,27 +118,23 @@ public class BenchmarkGenerator {
                 ResultPair psoResults = benchmarkPSO(testData);
                 System.out.println("PSO Results: " + psoResults.min + " " + psoResults.avg);
 
-                ResultPair geneticAlgorithmResults = benchmarkGeneticAlgorithm(testData);
-                System.out.println("GA Results: " + geneticAlgorithmResults.min + " " + geneticAlgorithmResults.avg);
+                //ResultPair geneticAlgorithmResults = benchmarkGeneticAlgorithm(testData);
+                //System.out.println("GA Results: " + geneticAlgorithmResults.min + " " + geneticAlgorithmResults.avg);
 
-                ResultPair vnsResults = benchmarkVNS(testData);
-                System.out.println("VNS Results: " + vnsResults.min + " " + vnsResults.avg);
+                //ResultPair vnsResults = benchmarkVNS(testData);
+                //System.out.println("VNS Results: " + vnsResults.min + " " + vnsResults.avg);
 
+                //writer.printf(Locale.US, "%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f%n",
+                //        testData,
+                //        geneticAlgorithmResults.min,
+                //        geneticAlgorithmResults.avg,
+                //        vnsResults.min,
+                //        vnsResults.avg,
+                //        psoResults.min,
+                //        psoResults.avg
+                //);
 
-
-
-
-                writer.printf(Locale.US, "%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f%n",
-                        testData,
-                        geneticAlgorithmResults.min,
-                        geneticAlgorithmResults.avg,
-                        vnsResults.min,
-                        vnsResults.avg,
-                        psoResults.min,
-                        psoResults.avg
-                );
-
-                writer.flush();
+                //writer.flush();
 
             }
 

@@ -28,14 +28,20 @@ public class PSO {
     private int timestep;
     private Map<Integer, Integer> visitOpeningTime;
     private Map<Integer, Integer> demands;
+    private Map<Integer, Integer> lastVehiclePosition;
+    private Map<Integer, Integer> currentVehicleTime;
+    private Set<Integer> activeClients;
+    private Map<Integer, Integer> currentVehicleCapacity;
+    private List<List<Integer>> plannedRoutes;
 
     private int PARTICLE_NUMBER = 22;
     private int REQUEST_CLUSTER_CENTERS = 2;
     private final int PENALITY_VALUE = (int)1e9;
     private final long TIME_LIMIT = 75 * 1000;
+    private final int TIME_SLICE = 40;
 
 
-    public PSO(MapBuilder mapBuilder){
+    public PSO(MapBuilder mapBuilder, Map<Integer, Integer> lastVehiclePosition, Map<Integer, Integer> currentVehicleTime, Set<Integer> activeClients, Map<Integer, Integer> currentVehicleCapacity, List<List<Integer>> plannedRoutes){
         this.valuesFromTestData = mapBuilder.getDataParsedFromTestData();
         this.maxX = valuesFromTestData.getMaxX();
         this.minX = valuesFromTestData.getMinX();
@@ -45,6 +51,13 @@ public class PSO {
         this.nodeCoordinates = valuesFromTestData.getNodeCoordinates();
         this.bestCoordinates = new double[this.dimensions];
         this.depotSet = new HashSet<>(this.valuesFromTestData.getMapDepotToNode().values());
+
+        this.lastVehiclePosition = lastVehiclePosition;
+        this.currentVehicleTime = currentVehicleTime;
+        this.activeClients = activeClients;
+        this.currentVehicleCapacity = currentVehicleCapacity;
+        this.plannedRoutes = plannedRoutes;
+
         double paddingX = (this.maxX - this.minX) * 0.3;
         double paddingY = (this.maxY - this.minY) * 0.3;
 
@@ -66,62 +79,77 @@ public class PSO {
         return this.depotSet.contains(node);
     }
 
-    private double computeRouteFitness(List<Integer> route) {
+    private double computeRouteFitness(List<Integer> route, int vehicleIndex) {
 
         if(route.size() <= 2)
             return 0.0;
 
-        if(this.fitnessCache.containsKey(route)){
-            return this.fitnessCache.get(route);
-        }
-
         double totalDistance = 0.0;
-        int currentDemand = 0;
-        double currentTime = 0.0;
-        int depotNode = route.get(0);
+        int currentCapacity = this.currentVehicleCapacity.get(vehicleIndex);
+        double currentTime = this.currentVehicleTime.get(vehicleIndex);
+        int depotNode = this.valuesFromTestData.getListOfDepotsIndex().get(vehicleIndex % this.valuesFromTestData.getNumberOfDepots());
 
         for (int i = 0; i < route.size() - 1; i++) {
             int currentNode = route.get(i);
             int nextNode = route.get(i + 1);
 
             int openingTime = isDepot(nextNode) ? 0 : this.visitOpeningTime.get(nextNode);
+            double distance = (currentNode == nextNode) ? 0.0 : this.graph.getEdgeWeight(currentNode, nextNode);
+            if (Double.isNaN(distance)) {
+                distance = PENALITY_VALUE;
+            }
+            double arrivalTime = currentTime + (distance / this.timestep);
 
-            if (currentTime < openingTime) {
-                currentTime += this.timestep;
-                i--;
-                continue;
+            while (arrivalTime < openingTime) {
+                arrivalTime += this.timestep;
             }
 
-            double distance = this.graph.getEdgeWeight(currentNode, nextNode);
+            currentTime = arrivalTime;
             totalDistance += distance;
 
-            if (nextNode != depotNode) {
-                currentDemand += Math.abs(this.demands.get(nextNode));
+            if (!isDepot(nextNode)) {
+                currentCapacity -= Math.abs(this.demands.get(nextNode));
             }
-
-
-            currentTime += (distance / this.timestep);
         }
 
         int closingTime = this.valuesFromTestData.getDepotOpenTimeFrame().get(depotNode)[1];
         double finalFitness = totalDistance;
 
-        if (currentDemand > this.valuesFromTestData.getCapacityLimit() || currentTime > closingTime) {
-            finalFitness = totalDistance + PENALITY_VALUE;
+        double capacityViolation = 0.0;
+        if(currentCapacity < 0)
+            capacityViolation = Math.abs((double) currentCapacity);
+
+        double timeViolation = 0.0;
+        if(currentTime > closingTime)
+            timeViolation = currentTime - closingTime;
+
+        int clientsInTrip = 0;
+        for(int node : route) {
+            if(!isDepot(node) && node != this.lastVehiclePosition.get(vehicleIndex))
+                clientsInTrip++;
         }
 
-        this.fitnessCache.put(new ArrayList<>(route), finalFitness);
+        double clientLimitViolation = 0.0;
+        if (clientsInTrip > 5)
+            clientLimitViolation = clientsInTrip - 5;
+
+        if (capacityViolation > 0 || timeViolation > 0 || clientLimitViolation > 0) {
+            finalFitness = totalDistance + PENALITY_VALUE
+                    + (capacityViolation * 10000.0)
+                    + (timeViolation * 10000.0)
+                    + (clientLimitViolation * 50000.0);
+        }
 
         return finalFitness;
     }
 
-    private List<Integer> twoOpt(List<Integer> route){
+    private List<Integer> twoOpt(List<Integer> route, int vehicleIndex){
 
         if(route.size() <= 3)
             return route;
 
         List<Integer> bestRoute = new ArrayList<>(route);
-        double bestDistance = computeRouteFitness(bestRoute);
+        double bestDistance = computeRouteFitness(bestRoute, vehicleIndex);
         boolean improvement = true;
 
         while(improvement){
@@ -135,7 +163,7 @@ public class PSO {
 
                     Collections.reverse(newRoute.subList(i, j + 1));
 
-                    double newDistance = computeRouteFitness(newRoute);
+                    double newDistance = computeRouteFitness(newRoute, vehicleIndex);
 
                     if(newDistance < bestDistance){
                         bestRoute = newRoute;
@@ -156,16 +184,22 @@ public class PSO {
     private List<List<Integer>> assignClusters(Particle particle){
 
         int depotNumbers = this.valuesFromTestData.getNumberOfDepots();
+        List<Integer> listOfDepotsIndexes = this.valuesFromTestData.getListOfDepotsIndex();
+
 
         List<List<Integer>> routes = new ArrayList<>();
         for(int i = 0; i < this.valuesFromTestData.getNumberOfVehicles(); i++){
             routes.add(new ArrayList<>());
-            routes.get(i).add(i % depotNumbers);
+            routes.get(i).add(this.lastVehiclePosition.get(i));
         }
 
         double[] clusters = particle.getCoordinates();
+        Collection<Integer> activePositions = this.lastVehiclePosition.values();
 
-        for(Integer nodeIndex : this.nodeCoordinates.keySet()){
+        for(Integer nodeIndex : this.activeClients){
+            if(isDepot(nodeIndex) || activePositions.contains(nodeIndex))
+                continue;
+
             CoordinatePair customerCoordinates = this.nodeCoordinates.get(nodeIndex);
 
             if(isDepot(nodeIndex))
@@ -190,15 +224,177 @@ public class PSO {
         }
 
         for(int i = 0; i < this.valuesFromTestData.getNumberOfVehicles(); i++){
-            routes.get(i).add(routes.get(i).get(0));
+            int assignedDepot = listOfDepotsIndexes.get(i % depotNumbers);
+            routes.get(i).add(assignedDepot);
         }
 
         return routes;
     }
 
-    public double runPSO(){
+    private void applySmartRepair(List<List<Integer>> routes) {
+        int depotNumbers = this.valuesFromTestData.getNumberOfDepots();
+        int numberOfVehicles = this.valuesFromTestData.getNumberOfVehicles();
+        int maxCapacity = this.valuesFromTestData.getCapacityLimit();
+
+        boolean needsRepair = true;
+        int safetyCounter = 0;
+
+        while (needsRepair && safetyCounter < 100) {
+            needsRepair = false;
+            safetyCounter++;
+
+            for (int v = 0; v < numberOfVehicles; v++) {
+                List<Integer> route = routes.get(v);
+                int currentCap = this.currentVehicleCapacity.get(v);
+                int assignedDepot = this.valuesFromTestData.getListOfDepotsIndex().get(v % depotNumbers);
+
+                int clientsInTrip = 0;
+
+                int i = 1;
+                while (i < route.size()) {
+                    int node = route.get(i);
+
+                    if (i == route.size() - 1 && isDepot(node))
+                        break;
+
+                    if (isDepot(node) || node == this.lastVehiclePosition.get(v)) {
+                        currentCap = maxCapacity;
+                        clientsInTrip = 0;
+                        i++;
+                        continue;
+                    }
+
+                    int demand = Math.abs(this.demands.get(node));
+
+                    if (demand > currentCap || clientsInTrip >= 5) {
+                        needsRepair = true;
+
+                        if (safetyCounter > 50) {
+                            route.add(i, assignedDepot);
+                            currentCap = maxCapacity;
+                            clientsInTrip = 0;
+                            continue;
+                        }
+
+                        route.remove(i);
+                        int bestVehicle = -1;
+                        double bestDist = Double.MAX_VALUE;
+
+                        for (int k = 0; k < numberOfVehicles; k++) {
+                            if (k == v)
+                                continue;
+
+                            List<Integer> targetRoute = routes.get(k);
+                            int lastNode = this.lastVehiclePosition.get(k);
+
+                            if (!targetRoute.isEmpty()) {
+                                lastNode = targetRoute.get(targetRoute.size() - 1);
+                                if (isDepot(lastNode) && targetRoute.size() > 1) {
+                                    lastNode = targetRoute.get(targetRoute.size() - 2);
+                                }
+                            }
+
+                            double dist = (lastNode == node) ? 0.0 : this.graph.getEdgeWeight(lastNode, node);
+                            if (Double.isNaN(dist)) dist = Double.MAX_VALUE;
+
+                            if (dist < bestDist) {
+                                bestDist = dist;
+                                bestVehicle = k;
+                            }
+                        }
+
+                        if (bestVehicle != -1) {
+                            List<Integer> targetRoute = routes.get(bestVehicle);
+                            if (targetRoute.size() > 1 && isDepot(targetRoute.get(targetRoute.size() - 1))) {
+                                targetRoute.add(targetRoute.size() - 1, node);
+                            } else {
+                                targetRoute.add(node);
+                            }
+                        } else {
+                            route.add(i, assignedDepot);
+                            currentCap = maxCapacity;
+                            clientsInTrip = 0;
+                        }
+
+                    } else {
+                        currentCap -= demand;
+                        clientsInTrip++;
+                        i++;
+                    }
+                }
+            }
+        }
+    }
+
+    private List<List<Integer>> decodeToRoutes(double[] coordinates) {
+        int depotNumbers = this.valuesFromTestData.getNumberOfDepots();
+        List<Integer> listOfDepotsIndexes = this.valuesFromTestData.getListOfDepotsIndex();
+        int numberOfVehicles = this.valuesFromTestData.getNumberOfVehicles();
+
+        List<List<Integer>> finalRoutes = new ArrayList<>();
+        for(int i = 0; i < numberOfVehicles; i++){
+            finalRoutes.add(new ArrayList<>());
+            finalRoutes.get(i).add(this.lastVehiclePosition.get(i));
+        }
+
+        Collection<Integer> activePositions = this.lastVehiclePosition.values();
+
+        for(Integer nodeIndex : this.activeClients){
+            if(isDepot(nodeIndex) || activePositions.contains(nodeIndex))
+                continue;
+
+            CoordinatePair customerCoordinates = this.nodeCoordinates.get(nodeIndex);
+            double bestDistance = Double.MAX_VALUE;
+            int bestVehicle = 0;
+
+            for(int i = 0; i < coordinates.length; i+=2){
+                CoordinatePair clusterCoordinates = new CoordinatePair(coordinates[i], coordinates[i + 1]);
+                double distance = customerCoordinates.distanceToNode(clusterCoordinates);
+                if(distance < bestDistance) {
+                    bestDistance = distance;
+                    bestVehicle = (i / 2) / this.REQUEST_CLUSTER_CENTERS;
+                }
+            }
+            finalRoutes.get(bestVehicle).add(nodeIndex);
+        }
+
+        for(int i = 0; i < numberOfVehicles; i++){
+            List<Integer> route = finalRoutes.get(i);
+            int assignedDepot = listOfDepotsIndexes.get(i % depotNumbers);
+            List<Integer> optimized = twoOpt(route, i);
+
+            if(!isDepot(optimized.get(optimized.size() - 1))){
+                optimized.add(assignedDepot);
+            }
+            finalRoutes.set(i, optimized);
+        }
+
+        applySmartRepair(finalRoutes);
+
+        for(int i = 0; i < numberOfVehicles; i++){
+            List<Integer> route = finalRoutes.get(i);
+            int assignedDepot = listOfDepotsIndexes.get(i % depotNumbers);
+
+            if (route.isEmpty()) {
+                route.add(this.lastVehiclePosition.get(i));
+            }
+
+            if (!isDepot(route.get(route.size() - 1))) {
+                route.add(assignedDepot);
+            }
+        }
+
+        return finalRoutes;
+    }
+
+    public List<List<Integer>> runPSO(){
 
         this.fitnessCache.clear();
+
+        this.bestFitness = Double.MAX_VALUE;
+        for(Particle p : this.swarm) {
+            p.setBestFitness(Double.MAX_VALUE);
+        }
 
         double a = 0.60;
         double l = 2.0;
@@ -209,7 +405,7 @@ public class PSO {
         int iterationsWithoutImprovement = 0;
         double previousBestFitness = this.bestFitness;
 
-        while(System.currentTimeMillis() - startTime < TIME_LIMIT){
+        while(System.currentTimeMillis() - startTime < (TIME_LIMIT / TIME_SLICE)){
             iteration++;
 
             if(this.bestFitness < previousBestFitness){
@@ -244,25 +440,25 @@ public class PSO {
             for(Particle particle : this.swarm){
                 List<List<Integer>> initialRoutes = assignClusters(particle);
 
+                List<List<Integer>> optimizedRoutes = new ArrayList<>();
+                for(int v = 0; v < initialRoutes.size(); v++){
+                    optimizedRoutes.add(twoOpt(initialRoutes.get(v), v));
+                }
+
+                applySmartRepair(optimizedRoutes);
 
                 double currentParticleFitness = 0.0;
-                boolean isValid = true;
+                for(int v = 0; v < optimizedRoutes.size(); v++){
+                    List<Integer> route = optimizedRoutes.get(v);
+                    if(route.size() <= 2) continue;
 
-                for(List<Integer> route : initialRoutes){
-
-                    if(route.size() <= 2)
-                        continue;
-
-                    List<Integer> optimizedRoute = twoOpt(route);
-
-                    double routeFitness = computeRouteFitness(optimizedRoute);
-
+                    double routeFitness = computeRouteFitness(route, v);
                     currentParticleFitness += routeFitness;
                 }
 
                 if(currentParticleFitness < particle.getBestFitness()){
                     particle.setBestFitness(currentParticleFitness);
-                    particle.setBestCoordinates(particle.getCoordinates());
+                    particle.setBestCoordinates(particle.getCoordinates().clone());
                 }
 
                 if(currentParticleFitness < bestFitness){
@@ -271,8 +467,8 @@ public class PSO {
                 }
             }
 
-            System.out.println("Best coordinates" + Arrays.toString(this.bestCoordinates));
-            System.out.println("Best distance: " + bestFitness);
+            //System.out.println("Best coordinates" + Arrays.toString(this.bestCoordinates));
+            //System.out.println("Best distance: " + bestFitness);
 
             for(Particle particle : this.swarm){
                 double[] currentCoordinates = particle.getCoordinates();
@@ -286,7 +482,21 @@ public class PSO {
                                     + l * random.nextDouble() * (particleBestCoordinates[i] - currentCoordinates[i])
                                     + g * random.nextDouble() * (this.bestCoordinates[i] - currentCoordinates[i]);
 
+                    if (Double.isNaN(velocity[i]) || Double.isInfinite(velocity[i])) {
+                        velocity[i] = 0.0;
+                    }
+
+                    if (velocity[i] > 15.0)
+                        velocity[i] = 15.0;
+
+                    if (velocity[i] < -15.0)
+                        velocity[i] = -15.0;
+
                     currentCoordinates[i] = currentCoordinates[i] + velocity[i];
+
+                    if (Double.isNaN(currentCoordinates[i])) {
+                        currentCoordinates[i] = this.minX + random.nextDouble() * (this.maxX - this.minX);
+                    }
 
                     if(i % 2 == 0){
                         if(currentCoordinates[i] < this.minX) currentCoordinates[i] = this.minX;
@@ -299,6 +509,6 @@ public class PSO {
             }
         }
 
-        return this.bestFitness;
+        return decodeToRoutes(this.bestCoordinates);
     }
 }
