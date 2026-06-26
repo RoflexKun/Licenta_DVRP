@@ -71,15 +71,18 @@ public class GeneticAlgorithm {
     }
 
     private double computeFitness(List<Integer> individual){
+        this.fitnessUsageCounter++;
+
         if(this.fitnessCache.containsKey(individual)){
             return this.fitnessCache.get(individual);
         }
-        this.fitnessUsageCounter++;
+
         List<Integer> listOfDepotsIndexes = this.valuesFromTestData.getListOfDepotsIndex();
         int numberOfVehicles = this.valuesFromTestData.getNumberOfVehicles();
         int numberOfDepots = this.valuesFromTestData.getNumberOfDepots();
         int vehicleNumber = 0;
         double totalDistance = 0.0;
+        int unservedClients = 0;
 
         int depotNode = listOfDepotsIndexes.get(vehicleNumber % numberOfDepots);
         double currentTime = this.currentVehicleTime.get(vehicleNumber);
@@ -88,20 +91,19 @@ public class GeneticAlgorithm {
 
         for(int i = 0; i < individual.size(); i++){
             int nextCustomer = individual.get(i);
-            int demand = Math.abs(this.demands.get(nextCustomer));
-            double distance = (currentNode == nextCustomer) ? 0.0 : this.graph.getEdgeWeight(currentNode, nextCustomer);
-            boolean routeEnds = false;
 
-            if(currentTime < this.visitOpeningTime.get(nextCustomer)){
-                currentTime += this.timestep;
-                i--;
+            if (!this.activeClients.contains(nextCustomer)) {
                 continue;
             }
 
+            int demand = Math.abs(this.demands.get(nextCustomer));
+            double distance = (currentNode == nextCustomer) ? 0.0 : this.graph.getEdgeWeight(currentNode, nextCustomer);
+
             double arrivalTime = currentTime + (distance / this.timestep);
 
-            while(arrivalTime < this.visitOpeningTime.get(nextCustomer)){
-                arrivalTime += timestep;
+            if (arrivalTime < this.visitOpeningTime.get(nextCustomer)) {
+                double diff = this.visitOpeningTime.get(nextCustomer) - arrivalTime;
+                arrivalTime += Math.ceil(diff / this.timestep) * this.timestep;
             }
 
             double returnTime = arrivalTime + (this.graph.getEdgeWeight(nextCustomer, depotNode) / this.timestep);
@@ -112,29 +114,74 @@ public class GeneticAlgorithm {
                 totalDistance += distance;
                 currentTime = arrivalTime;
                 currentNode = nextCustomer;
-            } else {
-                if(currentNode != depotNode)
-                    totalDistance += this.graph.getEdgeWeight(currentNode, depotNode);
+            }
+            else {
+                double timeToReturnNow = currentTime + (this.graph.getEdgeWeight(currentNode, depotNode) / this.timestep);
 
-                vehicleNumber++;
-                if(vehicleNumber >= numberOfVehicles)
-                    return totalDistance + PENALITY_VALUE;
+                if (demand > currentCapacity && timeToReturnNow <= closingTime) {
+                    if (currentNode != depotNode) {
+                        totalDistance += this.graph.getEdgeWeight(currentNode, depotNode);
+                    }
+                    currentTime = timeToReturnNow;
+                    currentNode = depotNode;
+                    currentCapacity = valuesFromTestData.getCapacityLimit();
 
-                depotNode = listOfDepotsIndexes.get(vehicleNumber % numberOfDepots);
-                currentTime = this.currentVehicleTime.get(vehicleNumber);
-                currentCapacity = this.currentVehicleCapacity.get(vehicleNumber);
-                currentNode = this.lastVehiclePosition.get(vehicleNumber);
-                i--;
+                    double distanceFromDepot = this.graph.getEdgeWeight(depotNode, nextCustomer);
+                    double arrivalTimeFromDepot = currentTime + (distanceFromDepot / this.timestep);
+                    if (arrivalTimeFromDepot < this.visitOpeningTime.get(nextCustomer)) {
+                        double diff = this.visitOpeningTime.get(nextCustomer) - arrivalTimeFromDepot;
+                        arrivalTimeFromDepot += Math.ceil(diff / this.timestep) * this.timestep;
+                    }
+                    double returnTimeFromDepot = arrivalTimeFromDepot + (this.graph.getEdgeWeight(nextCustomer, depotNode) / this.timestep);
+
+                    if (demand <= currentCapacity && returnTimeFromDepot <= closingTime) {
+                        currentCapacity -= demand;
+                        totalDistance += distanceFromDepot;
+                        currentTime = arrivalTimeFromDepot;
+                        currentNode = nextCustomer;
+                    } else {
+
+                        vehicleNumber++;
+                        if(vehicleNumber >= numberOfVehicles) {
+                            unservedClients++;
+                            vehicleNumber--;
+                        } else {
+                            depotNode = listOfDepotsIndexes.get(vehicleNumber % numberOfDepots);
+                            currentTime = this.currentVehicleTime.get(vehicleNumber);
+                            currentCapacity = this.currentVehicleCapacity.get(vehicleNumber);
+                            currentNode = this.lastVehiclePosition.get(vehicleNumber);
+                            i--;
+                        }
+                    }
+                }
+                else {
+                    if(currentNode != depotNode)
+                        totalDistance += this.graph.getEdgeWeight(currentNode, depotNode);
+
+                    vehicleNumber++;
+                    if(vehicleNumber >= numberOfVehicles){
+                        unservedClients++;
+                        vehicleNumber--;
+                    } else {
+                        depotNode = listOfDepotsIndexes.get(vehicleNumber % numberOfDepots);
+                        currentTime = this.currentVehicleTime.get(vehicleNumber);
+                        currentCapacity = this.currentVehicleCapacity.get(vehicleNumber);
+                        currentNode = this.lastVehiclePosition.get(vehicleNumber);
+                        i--;
+                    }
+                }
             }
         }
 
         if(currentNode != depotNode){
             totalDistance += this.graph.getEdgeWeight(currentNode, depotNode);
         }
-        this.fitnessCache.put(individual, totalDistance);
 
-        return totalDistance;
+        double finalFitness = totalDistance + (unservedClients * 100000.0);
 
+        this.fitnessCache.put(individual, finalFitness);
+
+        return finalFitness;
     }
 
     private List<List<Integer>> decodeToRoutes(List<Integer> bestIndividual) {
@@ -157,22 +204,22 @@ public class GeneticAlgorithm {
 
         for(int i = 0; i < bestIndividual.size(); i++){
             int nextCustomer = bestIndividual.get(i);
-            int demand = Math.abs(this.demands.get(nextCustomer));
-            double distance = (currentNode == nextCustomer) ? 0.0 : this.graph.getEdgeWeight(currentNode, nextCustomer);
 
-            if(currentTime < this.visitOpeningTime.get(nextCustomer)){
-                currentTime += this.timestep;
-                i--;
+            if (!this.activeClients.contains(nextCustomer)) {
                 continue;
             }
 
+            int demand = Math.abs(this.demands.get(nextCustomer));
+            double distance = (currentNode == nextCustomer) ? 0.0 : this.graph.getEdgeWeight(currentNode, nextCustomer);
+
             double arrivalTime = currentTime + (distance / this.timestep);
 
-            while(arrivalTime < this.visitOpeningTime.get(nextCustomer)){
-                arrivalTime += this.timestep;
+            if (arrivalTime < this.visitOpeningTime.get(nextCustomer)) {
+                double diff = this.visitOpeningTime.get(nextCustomer) - arrivalTime;
+                arrivalTime += Math.ceil(diff / this.timestep) * this.timestep;
             }
 
-            double returnTime = arrivalTime + (this.graph.getEdgeWeight(nextCustomer, depotNode));
+            double returnTime = arrivalTime + (this.graph.getEdgeWeight(nextCustomer, depotNode) / this.timestep);
             int closingTime = this.valuesFromTestData.getDepotOpenTimeFrame().get(depotNode)[1];
 
             if(demand <= currentCapacity && returnTime <= closingTime){
@@ -181,22 +228,60 @@ public class GeneticAlgorithm {
                 currentNode = nextCustomer;
                 solution.get(vehicleNumber).add(nextCustomer);
             } else {
-                if(currentNode != depotNode){
-                    solution.get(vehicleNumber).add(depotNode);
+                double timeToReturnNow = currentTime + (this.graph.getEdgeWeight(currentNode, depotNode) / this.timestep);
+
+                if (demand > currentCapacity && timeToReturnNow <= closingTime) {
+                    if (currentNode != depotNode) {
+                        solution.get(vehicleNumber).add(depotNode);
+                    }
+                    currentTime = timeToReturnNow;
+                    currentNode = depotNode;
+                    currentCapacity = valuesFromTestData.getCapacityLimit();
+
+                    double distanceFromDepot = this.graph.getEdgeWeight(depotNode, nextCustomer);
+                    double arrivalTimeFromDepot = currentTime + (distanceFromDepot / this.timestep);
+                    if (arrivalTimeFromDepot < this.visitOpeningTime.get(nextCustomer)) {
+                        double diff = this.visitOpeningTime.get(nextCustomer) - arrivalTimeFromDepot;
+                        arrivalTimeFromDepot += Math.ceil(diff / this.timestep) * this.timestep;
+                    }
+                    double returnTimeFromDepot = arrivalTimeFromDepot + (this.graph.getEdgeWeight(nextCustomer, depotNode) / this.timestep);
+
+                    if (demand <= currentCapacity && returnTimeFromDepot <= closingTime) {
+                        currentCapacity -= demand;
+                        currentTime = arrivalTimeFromDepot;
+                        currentNode = nextCustomer;
+                        solution.get(vehicleNumber).add(nextCustomer);
+                    } else {
+                        vehicleNumber++;
+                        if(vehicleNumber >= numberOfVehicles){
+                            vehicleNumber--;
+                        } else {
+                            depotNode = listOfDepotsIndexes.get(vehicleNumber % numberOfDepots);
+                            currentTime = this.currentVehicleTime.get(vehicleNumber);
+                            currentCapacity = this.currentVehicleCapacity.get(vehicleNumber);
+                            currentNode = this.lastVehiclePosition.get(vehicleNumber);
+                            solution.get(vehicleNumber).add(currentNode);
+                            i--;
+                        }
+                    }
                 }
+                else {
+                    if(currentNode != depotNode){
+                        solution.get(vehicleNumber).add(depotNode);
+                    }
 
-                vehicleNumber++;
-                if(vehicleNumber >= numberOfVehicles){
-                    break;
+                    vehicleNumber++;
+                    if(vehicleNumber >= numberOfVehicles){
+                        vehicleNumber--;
+                    } else {
+                        depotNode = listOfDepotsIndexes.get(vehicleNumber % numberOfDepots);
+                        currentTime = this.currentVehicleTime.get(vehicleNumber);
+                        currentCapacity = this.currentVehicleCapacity.get(vehicleNumber);
+                        currentNode = this.lastVehiclePosition.get(vehicleNumber);
+                        solution.get(vehicleNumber).add(currentNode);
+                        i--;
+                    }
                 }
-
-                depotNode = listOfDepotsIndexes.get(vehicleNumber % numberOfDepots);
-                currentTime = this.currentVehicleTime.get(vehicleNumber);
-                currentCapacity = this.currentVehicleCapacity.get(vehicleNumber);
-                currentNode = this.lastVehiclePosition.get(vehicleNumber);
-
-                solution.get(vehicleNumber).add(currentNode);
-                i--;
             }
         }
 
@@ -299,7 +384,6 @@ public class GeneticAlgorithm {
         List<List<Integer>> nextGeneration = new ArrayList<>();
         List<Integer> bestIndividual = findBestSolution(currentPopulation);
 
-        // Keeping the best individual from each generation so we don't miss him
         nextGeneration.add(bestIndividual);
 
         while(nextGeneration.size() < POPULATION_COUNT){
@@ -362,6 +446,56 @@ public class GeneticAlgorithm {
 
     }
 
+    private void validateAllClients(List<List<Integer>> bestRoutes, Set<Integer> activeClients) {
+        Set<Integer> visited = new HashSet<>();
+        for(List<Integer> route : bestRoutes){
+            visited.addAll(route);
+        }
+        visited.remove(0);
+
+        List<Integer> missingClients = new ArrayList<>();
+        for (Integer client : activeClients) {
+            if(!visited.contains(client)) {
+                missingClients.add(client);
+            }
+        }
+
+        if(missingClients.isEmpty())
+            return;
+
+        int mIdx = 0;
+        for (List<Integer> route : bestRoutes) {
+            if (mIdx >= missingClients.size())
+                break;
+
+            if (route.size() == 1 && route.get(0) == 0) {
+                int count = 0;
+
+                while (mIdx < missingClients.size() && count < 5) {
+                    route.add(missingClients.get(mIdx));
+                    mIdx++;
+                    count++;
+                }
+                route.add(0);
+            }
+        }
+
+        while (mIdx < missingClients.size()) {
+            List<Integer> route0 = bestRoutes.get(0);
+            if (route0.get(route0.size() - 1) != 0) {
+                route0.add(0);
+            }
+
+            int count = 0;
+            while (mIdx < missingClients.size() && count < 5) {
+                route0.add(missingClients.get(mIdx));
+                mIdx++;
+                count++;
+            }
+            route0.add(0);
+        }
+    }
+
     public List<List<Integer>> runGA(){
         this.fitnessUsageCounter = 0;
         this.fitnessCache.clear();
@@ -386,10 +520,12 @@ public class GeneticAlgorithm {
             //System.out.println("Best distance: " + bestFitness);
             if (bestFitness < bestDistance){
                 bestDistance = bestFitness;
-                theBestIndividual = bestIndividual;
+                theBestIndividual = new ArrayList<>(bestIndividual);
             }
         }
 
-        return decodeToRoutes(theBestIndividual);
+        List<List<Integer>> bestRoutesFinal = decodeToRoutes(theBestIndividual);
+        this.validateAllClients(bestRoutesFinal, this.activeClients);
+        return bestRoutesFinal;
     }
 }

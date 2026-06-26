@@ -118,23 +118,23 @@ public class BenchmarkGenerator {
                 ResultPair psoResults = benchmarkPSO(testData);
                 System.out.println("PSO Results: " + psoResults.min + " " + psoResults.avg);
 
-                //ResultPair geneticAlgorithmResults = benchmarkGeneticAlgorithm(testData);
-                //System.out.println("GA Results: " + geneticAlgorithmResults.min + " " + geneticAlgorithmResults.avg);
+                ResultPair geneticAlgorithmResults = benchmarkGeneticAlgorithm(testData);
+                System.out.println("GA Results: " + geneticAlgorithmResults.min + " " + geneticAlgorithmResults.avg);
 
-                //ResultPair vnsResults = benchmarkVNS(testData);
-                //System.out.println("VNS Results: " + vnsResults.min + " " + vnsResults.avg);
+                ResultPair vnsResults = benchmarkVNS(testData);
+                System.out.println("VNS Results: " + vnsResults.min + " " + vnsResults.avg);
 
-                //writer.printf(Locale.US, "%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f%n",
-                //        testData,
-                //        geneticAlgorithmResults.min,
-                //        geneticAlgorithmResults.avg,
-                //        vnsResults.min,
-                //        vnsResults.avg,
-                //        psoResults.min,
-                //        psoResults.avg
-                //);
+                writer.printf(Locale.US, "%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f%n",
+                        testData,
+                        geneticAlgorithmResults.min,
+                        geneticAlgorithmResults.avg,
+                        vnsResults.min,
+                        vnsResults.avg,
+                        psoResults.min,
+                        psoResults.avg
+                );
 
-                //writer.flush();
+                writer.flush();
 
             }
 

@@ -387,6 +387,56 @@ public class PSO {
         return finalRoutes;
     }
 
+    private void validateAllClients(List<List<Integer>> bestRoutes, Set<Integer> activeClients) {
+        Set<Integer> visited = new HashSet<>();
+        for(List<Integer> route : bestRoutes){
+            visited.addAll(route);
+        }
+        visited.remove(0);
+
+        List<Integer> missingClients = new ArrayList<>();
+        for (Integer client : activeClients) {
+            if(!visited.contains(client)) {
+                missingClients.add(client);
+            }
+        }
+
+        if(missingClients.isEmpty())
+            return;
+
+        int mIdx = 0;
+        for (List<Integer> route : bestRoutes) {
+            if (mIdx >= missingClients.size())
+                break;
+
+            if (route.size() == 1 && route.get(0) == 0) {
+                int count = 0;
+
+                while (mIdx < missingClients.size() && count < 5) {
+                    route.add(missingClients.get(mIdx));
+                    mIdx++;
+                    count++;
+                }
+                route.add(0);
+            }
+        }
+
+        while (mIdx < missingClients.size()) {
+            List<Integer> route0 = bestRoutes.get(0);
+            if (route0.get(route0.size() - 1) != 0) {
+                route0.add(0);
+            }
+
+            int count = 0;
+            while (mIdx < missingClients.size() && count < 5) {
+                route0.add(missingClients.get(mIdx));
+                mIdx++;
+                count++;
+            }
+            route0.add(0);
+        }
+    }
+
     public List<List<Integer>> runPSO(){
 
         this.fitnessCache.clear();
@@ -508,7 +558,8 @@ public class PSO {
                 }
             }
         }
-
-        return decodeToRoutes(this.bestCoordinates);
+        List<List<Integer>> bestRoutesFinal = decodeToRoutes(this.bestCoordinates);
+        this.validateAllClients(bestRoutesFinal, this.activeClients);
+        return bestRoutesFinal;
     }
 }

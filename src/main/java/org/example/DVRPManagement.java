@@ -32,7 +32,7 @@ public class DVRPManagement {
         return this.depotList.contains(node);
     }
 
-    private double commitRoutes(List<List<Integer>> bestRoutes, int nextTimeLimit, Graph graph){
+    private double commitRoutes(List<List<Integer>> bestRoutes, int nextTimeLimit, Graph graph, boolean isLastSlice){
         int timestep = this.dataParser.getTimestep();
         Map<Integer, Integer> openingTimes = this.dataParser.getVisitOpeningTime();
 
@@ -60,7 +60,7 @@ public class DVRPManagement {
                     }
                 }
 
-                if(arrivalTime > nextTimeLimit){
+                if(!isLastSlice && arrivalTime > nextTimeLimit){
                     cutoffIndex = j;
                     break;
                 }
@@ -148,6 +148,8 @@ public class DVRPManagement {
             Map<Integer, Integer> openingTime = dataParserModified.getVisitOpeningTime();
             Collection<Integer> activePositions = this.lastVehiclePosition.values();
 
+
+
             int depotClosingTime = this.dataParser.getDepotOpenTimeFrame().get(0)[1];
             double t_co = 0.5;
             int cutoffTimeLimit = (int) (depotClosingTime * t_co);
@@ -157,8 +159,11 @@ public class DVRPManagement {
                     continue;
 
                 boolean isKnownFromStart = (openingTime.get(node) > cutoffTimeLimit);
-
-                if (activePositions.contains(node) ||
+                if (i == TIME_SLICE - 1) {
+                    if (!this.servedNodes.contains(node)) {
+                        activeClients.add(node);
+                    }
+                } else if(activePositions.contains(node) ||
                         (openingTime.get(node) <= currentTime && !this.servedNodes.contains(node)) ||
                         (isKnownFromStart && !this.servedNodes.contains(node))) {
                     activeClients.add(node);
@@ -175,7 +180,7 @@ public class DVRPManagement {
 
                     int nextTimeLimit = currentTime + this.timeCount;
 
-                    totalDistanceVNS += commitRoutes(bestRoutes, nextTimeLimit, mapBuilder.getMapFromData());
+                    totalDistanceVNS += commitRoutes(bestRoutes, nextTimeLimit, mapBuilder.getMapFromData(), i == (this.TIME_SLICE - 1) );
                     System.out.println("Slice " + i + " ISTORIC COMPLET: " + this.fullRoutes.toString());
                     break;
                 case "GA":
@@ -185,7 +190,7 @@ public class DVRPManagement {
                     List<List<Integer>> bestRoutesGA = gaDVRP.runGA();
                     int nextTimeLimitGA = currentTime + this.timeCount;
 
-                    totalDistanceGA += commitRoutes(bestRoutesGA, nextTimeLimitGA, mapBuilderGA.getMapFromData());
+                    totalDistanceGA += commitRoutes(bestRoutesGA, nextTimeLimitGA, mapBuilderGA.getMapFromData(), i == (this.TIME_SLICE - 1));
                     System.out.println("Slice " + i + " ISTORIC COMPLET GA: " + this.fullRoutes.toString());
                     break;
                 case "PSO":
@@ -195,7 +200,7 @@ public class DVRPManagement {
                     List<List<Integer>> bestRoutesPSO = psoDVRP.runPSO();
                     int nextTimeLimitPSO = currentTime + this.timeCount;
 
-                    totalDistancePSO += commitRoutes(bestRoutesPSO, nextTimeLimitPSO, mapBuilderPSO.getMapFromData());
+                    totalDistancePSO += commitRoutes(bestRoutesPSO, nextTimeLimitPSO, mapBuilderPSO.getMapFromData(), i == (this.TIME_SLICE - 1));
                     System.out.println("Slice " + i + " ISTORIC COMPLET PSO: " + this.fullRoutes.toString());
                     break;
                 default:
